@@ -1,0 +1,293 @@
+let's code P4 games for "d'Iessen"
+
+The code below is my fixed P3/P4/P5 LAYOUT MASTER and MUST NOT be restructured.
+Do NOT change the top bar, title bar, base CSS, or the overall layout system.
+
+Your task: create ONE chapter page using this layout.
+
+You MAY ONLY edit:
+1) The grade-specific values that are meant to change (if clearly marked)
+2) The game title text in the dark bar (id="gameTitle")
+3) The content inside the main content area (.wrap) — i.e. add/remove cards and the HTML elements inside them
+4) The JavaScript inside the small “Hooks” section to make the chapter interactive
+5) Any DATA arrays you add for the chapter (words, sentences, questions, audio, images), as long as you keep the layout intact
+
+You MUST keep:
+- The same top bar buttons (prev / next / play / replay) and the icon images
+- The title only in the dark bar (no extra title elsewhere)
+- Responsive behaviour (works on phone + Genially embed)
+- No external libraries
+
+Button behaviour rules:
+- prev/next must switch between exercises/cards/steps inside the chapter (or between pages if you implement sections)
+- play = play the current audio (if the exercise uses audio)
+- replay = replay/reset the current exercise (or re-shuffle)
+If the chapter has no audio, play can be disabled safely (but keep the button visible).
+
+OUTPUT:
+Return ONE full HTML file only.
+No explanations, no extra text.
+🧠 Game prompt suggestions (choose one per chapter/exercise)
+These are “mini-prompts” they can paste into ChatGPT after the layout prompt, to generate the exercise logic without changing the layout.
+1) Lauschter a klick (audio → pick correct)
+Create a “listen and click” exercise.
+DATA: items = [{word, img, audio}]
+Flow: play target audio → learner clicks the correct image → green flash + next item; wrong = red flash.
+Shuffle items each reset.
+Connect play button to replay current audio.
+Connect replay button to reshuffle and restart.
+2) Memory (image ↔ word OR image ↔ audio)
+Create a memory game with 8 pairs (or fewer if less data).
+Pairs: either image+word OR image+audio.
+Rules: flip 2 cards only; lock while checking; match stays open; mismatch flips back.
+Replay button = reshuffle/reset.
+Optional: play audio when revealing the word/audio card.
+3) Drag words into sentence (word tiles → slots)
+Create a drag/click “build the sentence” game.
+DATA: sentences = [{tokensInOrder:[...], distractors:[...optional]}]
+Show empty slots, provide shuffled tokens below.
+Learner drags or taps tokens to fill slots.
+Allow removing a placed token by tapping the slot.
+Check correctness when all slots filled; if correct → next sentence.
+Replay = restart current sentence with reshuffle.
+4) Multiple choice quiz (1 correct + 3 distractors)
+Create a multiple choice exercise.
+DATA: questions = [{prompt, options:[...], correctIndex, audio(optional), img(optional)}]
+Show prompt (and image if present), 4 option buttons.
+Correct = green flash + next question; wrong = red flash, allow retry.
+Play = play question audio if available.
+Replay = restart current question.
+5) Sort into categories (drag/tap into columns)
+Create a sorting game (drag & drop + tap fallback).
+DATA: items=[{img/word, cat}], categories=[{id,label}]
+Show 2–4 category columns and a pool of items.
+Correct drop moves into column; wrong flashes red and returns.
+Replay = reset and reshuffle.
+6) Conjugation picker (infinitive → choose correct form)
+Create a conjugation exercise.
+DATA: prompts=[{pronoun, infinitive, options:[...], correct, sentenceTemplate(optional)}]
+Show pronoun + infinitive and 3–5 options as pills/buttons.
+Learner selects; correct = next; wrong = retry.
+Optional: after correct, show full sentence briefly.
+Replay = reshuffle and restart.
+7) Inversion / question order (P4/P5 style)
+Create an inversion game (build a question).
+DATA: prompts=[{statementTokens:[...], questionTokensCorrect:[...]}]
+Show scrambled question tokens; learner orders them into slots.
+Check exact order; correct = next.
+Replay = reshuffle current.
+8) Gap-fill (fill the missing word)
+Create a gap-fill exercise.
+DATA: prompts=[{sentenceParts:["...", "___", "..."], options:[...], correct}]
+Display sentence with a blank and options.
+Click option fills blank; correct = next; wrong = retry.
+Replay = reset.
+P4 MASTER CODE:
+<!DOCTYPE html>
+<html lang="lb">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>P4 – Layout Master</title>
+
+<style>
+@font-face{
+  font-family:'Schoulschrëft';
+  src:url('https://raw.githubusercontent.com/albrechtclaire1007/schoulschreft/main/schoulschreft_bold%5B2%5D.TTF') format('truetype');
+  font-weight:bold; font-style:normal; font-display:swap;
+}
+
+:root{
+  /* P4 (matching your provided style) */
+  --bg1:#E9DDF7;
+  --bg2:#C9B3EE;
+
+  --bar:#B8A3E8;
+  --barBorder:#8E73D6;
+
+  --ink:#1f1f1f;
+  --white:#fff;
+  --border:3px;
+  --shadow:0 10px 24px rgba(0,0,0,.08);
+  --pad:clamp(10px,2.2vw,16px);
+  --r:18px;
+
+  --iconArrow:"https://i.postimg.cc/k6VtHrh0/p4arrow.png";
+  --iconPlay:"https://i.postimg.cc/WFDJyRHR/p4play.png";
+  --iconReplay:"https://i.postimg.cc/BL81zWVs/p4replay.png";
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; outline:none;}
+html,body{
+  height:100%; margin:0;
+  background:linear-gradient(135deg,var(--bg2),var(--bg1));
+  color:var(--ink);
+  font-family:'Schoulschrëft', Arial, sans-serif;
+}
+
+.topBar{
+  position:sticky; top:10px; z-index:10;
+  width:min(1200px,96vw);
+  margin:10px auto 0;
+  background:var(--bar);
+  border:var(--border) solid var(--barBorder);
+  border-radius:999px;
+  box-shadow:var(--shadow);
+  padding:10px 12px;
+
+  display:grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items:center;
+  gap:10px;
+}
+
+.barBtn{
+  border:none; background:transparent;
+  cursor:pointer;
+  display:grid; place-items:center;
+  width:54px; height:54px;
+}
+.barBtn:active{transform:scale(.98);}
+.barBtn img{width:46px; height:46px; object-fit:contain;}
+.barBtn.back img{transform:rotate(180deg);}
+
+.barTitle{
+  text-align:center;
+  color:#fff;
+  font-size:clamp(1.5rem,3.2vw,2.4rem);
+  margin:0;
+  line-height:1.1;
+  padding:0 6px;
+}
+
+.barRight{display:flex; align-items:center; gap:6px;}
+.barRight .barBtn{width:50px; height:50px;}
+.barRight .barBtn img{width:42px; height:42px;}
+
+.wrap{
+  width:min(1200px,96vw);
+  margin:18px auto 26px;
+  padding:var(--pad);
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.card{
+  background:rgba(255,255,255,.8);
+  border:var(--border) solid rgba(255,255,255,.65);
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  padding:clamp(12px,2.2vw,18px);
+}
+.cardTitle{margin:0 0 8px 0; font-size:clamp(1.1rem,2.2vw,1.5rem); opacity:.9;}
+.placeholder{border:3px dashed rgba(0,0,0,.2); border-radius:14px; padding:18px; background:rgba(255,255,255,.55); font-size:1.05rem; opacity:.85;}
+</style>
+</head>
+
+<body>
+
+<div class="topBar">
+  <button class="barBtn back" id="prev" aria-label="Virdrun">
+    <img src="https://i.postimg.cc/k6VtHrh0/p4arrow.png" alt="">
+  </button>
+
+  <h1 class="barTitle" id="gameTitle">P4 – Titel vum Spill</h1>
+
+  <div class="barRight">
+    <button class="barBtn" id="play" aria-label="Play">
+      <img src="https://i.postimg.cc/WFDJyRHR/p4play.png" alt="">
+    </button>
+    <button class="barBtn" id="replay" aria-label="Replay">
+      <img src="https://i.postimg.cc/BL81zWVs/p4replay.png" alt="">
+    </button>
+    <button class="barBtn" id="next" aria-label="Nächst">
+      <img src="https://i.postimg.cc/k6VtHrh0/p4arrow.png" alt="">
+    </button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <p class="cardTitle">Spill-Inhalt</p>
+    <div class="placeholder">Hei kënnt d’Übung / Spill fir dëst Kapitel eran.</div>
+  </div>
+</div>
+
+<script>
+document.getElementById('prev').onclick = ()=>{};
+document.getElementById('next').onclick = ()=>{};
+document.getElementById('play').onclick = ()=>{};
+document.getElementById('replay').onclick = ()=>{};
+</script>
+
+</body>
+</html>
+
+here is the sample audio file and you can find the others in the screenshot: https://github.com/albrechtclaire1007/p4iessen/raw/refs/heads/main/ouni_biffdeck.mp3
+
+here's the image links: (you don't have image links for all the words)
+
+[url=https://postimg.cc/K12D9SGM][img]https://i.postimg.cc/K12D9SGM/Bifdeck.png[/img][/url]
+
+[url=https://postimg.cc/211ZmCzT][img]https://i.postimg.cc/211ZmCzT/Botter-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/kVc9ptky][img]https://i.postimg.cc/kVc9ptky/Bounen-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/RJwnfhnW][img]https://i.postimg.cc/RJwnfhnW/Brout.png[/img][/url]
+
+[url=https://postimg.cc/V5XSKSdX][img]https://i.postimg.cc/V5XSKSdX/Eer.png[/img][/url]
+
+[url=https://postimg.cc/s1Mmx4Hj][img]https://i.postimg.cc/s1Mmx4Hj/ennen.png[/img][/url]
+
+[url=https://postimg.cc/QF3J6G8t][img]https://i.postimg.cc/QF3J6G8t/Fesch.png[/img][/url]
+
+[url=https://postimg.cc/Y4t8ScZd][img]https://i.postimg.cc/Y4t8ScZd/Ierbsen.png[/img][/url]
+
+[url=https://postimg.cc/gXsJ87zw][img]https://i.postimg.cc/gXsJ87zw/Jugurt-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/4Yxm4BwQ][img]https://i.postimg.cc/4Yxm4BwQ/Jus.png[/img][/url]
+
+[url=https://postimg.cc/PpXfXMWj][img]https://i.postimg.cc/PpXfXMWj/Kachkeis-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/QBjSMLw4][img]https://i.postimg.cc/QBjSMLw4/Knuewleck.png[/img][/url]
+
+[url=https://postimg.cc/wRFgSYCr][img]https://i.postimg.cc/wRFgSYCr/Limonad.png[/img][/url]
+
+[url=https://postimg.cc/jwHs47Zt][img]https://i.postimg.cc/jwHs47Zt/Mellech-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/PvCSkm9j][img]https://i.postimg.cc/PvCSkm9j/Miel.png[/img][/url]
+
+[url=https://postimg.cc/5Hc6VvKQ][img]https://i.postimg.cc/5Hc6VvKQ/Moschter-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/Jt7tMRxR][img]https://i.postimg.cc/Jt7tMRxR/Nuddelen-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/XZ34LgDr][img]https://i.postimg.cc/XZ34LgDr/Peffer-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/2bZqRyTR][img]https://i.postimg.cc/2bZqRyTR/Poulet.png[/img][/url]
+
+[url=https://postimg.cc/Y43ksm5c][img]https://i.postimg.cc/Y43ksm5c/Rais-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/5YVYwv8D][img]https://i.postimg.cc/5YVYwv8D/Ram-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/Z0WHnx71][img]https://i.postimg.cc/Z0WHnx71/Rieslingspaschteit.png[/img][/url]
+
+[url=https://postimg.cc/06fxBJLc][img]https://i.postimg.cc/06fxBJLc/Salz-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/348r8ZgV][img]https://i.postimg.cc/348r8ZgV/Spruddelwaasser-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/gwfJDdp8][img]https://i.postimg.cc/gwfJDdp8/Taart.png[/img][/url]
+
+[url=https://postimg.cc/rdCF2Htv][img]https://i.postimg.cc/rdCF2Htv/Waasser-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/bsJGHq2d][img]https://i.postimg.cc/bsJGHq2d/Zocker-Ouni.png[/img][/url]
+
+[url=https://postimg.cc/18QrWh9T][img]https://i.postimg.cc/18QrWh9T/Zoossiss.png[/img][/url]
+
+
+
+game 1: lauschter a klick
+game 2: sortéier an déi richteg categorie. Kids hear a word, all images are placed below 6 boxes (one for each food type - check the vocabulary sheet). when they hear a word they need to place the corresponding image into the correct category box. these boxes are aligned horizontally in the center. 
+game 3: De pluriel. We'll have an image, no singular indicated, a keyboard and the kids need to type in the correct plural form. also enable using the actual keyboard. obviously we skip the words that don't have a plurial form because they're uncountable. 
+another idea for a game would be that we give them a list of ingredients and they click on the corresponding dish that can be made, here i'd prefer using words rather than images. 
+For instance: Wat kann ech kachen mat Eeër, Mëllech a Miel? (Pangescher)
+Here i would need you to make some suggestions though. Alternatively, we take some traditional luxembourgish dishes, give the name and show a picture and up to the kids to figure out what ingredients come in there? What do you think?
