@@ -1,95 +1,9 @@
-let's code P4 games for "d'Iessen"
-
-The code below is my fixed P3/P4/P5 LAYOUT MASTER and MUST NOT be restructured.
-Do NOT change the top bar, title bar, base CSS, or the overall layout system.
-
-Your task: create ONE chapter page using this layout.
-
-You MAY ONLY edit:
-1) The grade-specific values that are meant to change (if clearly marked)
-2) The game title text in the dark bar (id="gameTitle")
-3) The content inside the main content area (.wrap) — i.e. add/remove cards and the HTML elements inside them
-4) The JavaScript inside the small “Hooks” section to make the chapter interactive
-5) Any DATA arrays you add for the chapter (words, sentences, questions, audio, images), as long as you keep the layout intact
-
-You MUST keep:
-- The same top bar buttons (prev / next / play / replay) and the icon images
-- The title only in the dark bar (no extra title elsewhere)
-- Responsive behaviour (works on phone + Genially embed)
-- No external libraries
-
-Button behaviour rules:
-- prev/next must switch between exercises/cards/steps inside the chapter (or between pages if you implement sections)
-- play = play the current audio (if the exercise uses audio)
-- replay = replay/reset the current exercise (or re-shuffle)
-If the chapter has no audio, play can be disabled safely (but keep the button visible).
-
-OUTPUT:
-Return ONE full HTML file only.
-No explanations, no extra text.
-🧠 Game prompt suggestions (choose one per chapter/exercise)
-These are “mini-prompts” they can paste into ChatGPT after the layout prompt, to generate the exercise logic without changing the layout.
-1) Lauschter a klick (audio → pick correct)
-Create a “listen and click” exercise.
-DATA: items = [{word, img, audio}]
-Flow: play target audio → learner clicks the correct image → green flash + next item; wrong = red flash.
-Shuffle items each reset.
-Connect play button to replay current audio.
-Connect replay button to reshuffle and restart.
-2) Memory (image ↔ word OR image ↔ audio)
-Create a memory game with 8 pairs (or fewer if less data).
-Pairs: either image+word OR image+audio.
-Rules: flip 2 cards only; lock while checking; match stays open; mismatch flips back.
-Replay button = reshuffle/reset.
-Optional: play audio when revealing the word/audio card.
-3) Drag words into sentence (word tiles → slots)
-Create a drag/click “build the sentence” game.
-DATA: sentences = [{tokensInOrder:[...], distractors:[...optional]}]
-Show empty slots, provide shuffled tokens below.
-Learner drags or taps tokens to fill slots.
-Allow removing a placed token by tapping the slot.
-Check correctness when all slots filled; if correct → next sentence.
-Replay = restart current sentence with reshuffle.
-4) Multiple choice quiz (1 correct + 3 distractors)
-Create a multiple choice exercise.
-DATA: questions = [{prompt, options:[...], correctIndex, audio(optional), img(optional)}]
-Show prompt (and image if present), 4 option buttons.
-Correct = green flash + next question; wrong = red flash, allow retry.
-Play = play question audio if available.
-Replay = restart current question.
-5) Sort into categories (drag/tap into columns)
-Create a sorting game (drag & drop + tap fallback).
-DATA: items=[{img/word, cat}], categories=[{id,label}]
-Show 2–4 category columns and a pool of items.
-Correct drop moves into column; wrong flashes red and returns.
-Replay = reset and reshuffle.
-6) Conjugation picker (infinitive → choose correct form)
-Create a conjugation exercise.
-DATA: prompts=[{pronoun, infinitive, options:[...], correct, sentenceTemplate(optional)}]
-Show pronoun + infinitive and 3–5 options as pills/buttons.
-Learner selects; correct = next; wrong = retry.
-Optional: after correct, show full sentence briefly.
-Replay = reshuffle and restart.
-7) Inversion / question order (P4/P5 style)
-Create an inversion game (build a question).
-DATA: prompts=[{statementTokens:[...], questionTokensCorrect:[...]}]
-Show scrambled question tokens; learner orders them into slots.
-Check exact order; correct = next.
-Replay = reshuffle current.
-8) Gap-fill (fill the missing word)
-Create a gap-fill exercise.
-DATA: prompts=[{sentenceParts:["...", "___", "..."], options:[...], correct}]
-Display sentence with a blank and options.
-Click option fills blank; correct = next; wrong = retry.
-Replay = reset.
-P4 MASTER CODE:
 <!DOCTYPE html>
 <html lang="lb">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>P4 – Layout Master</title>
-
+<title>P4 – d'Iessen</title>
 <style>
 @font-face{
   font-family:'Schoulschrëft';
@@ -181,18 +95,329 @@ html,body{
 }
 .cardTitle{margin:0 0 8px 0; font-size:clamp(1.1rem,2.2vw,1.5rem); opacity:.9;}
 .placeholder{border:3px dashed rgba(0,0,0,.2); border-radius:14px; padding:18px; background:rgba(255,255,255,.55); font-size:1.05rem; opacity:.85;}
+
+/* Chapter-specific additions */
+#gameHost{min-height:68vh;}
+.gameSection{display:none;}
+.gameSection.active{display:block;}
+
+.instruction{
+  text-align:center;
+  font-size:clamp(1rem,2vw,1.25rem);
+  margin:0 0 14px 0;
+}
+
+.progressRow{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:0 0 14px 0;
+}
+.badge{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.45);
+  border-radius:999px;
+  padding:8px 14px;
+  font-size:clamp(.9rem,1.8vw,1.05rem);
+}
+.statusMsg{
+  min-height:30px;
+  text-align:center;
+  font-size:clamp(1rem,2vw,1.2rem);
+  margin-bottom:8px;
+}
+.statusMsg.good{color:#228b22;}
+.statusMsg.bad{color:#c62828;}
+
+.choiceGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:12px;
+}
+.choiceCard{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.28);
+  border-radius:20px;
+  min-height:132px;
+  padding:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.choiceCard img{
+  max-width:100%;
+  max-height:110px;
+  object-fit:contain;
+  pointer-events:none;
+}
+.choiceCard:hover{transform:translateY(-2px);}
+.choiceCard.correct{
+  border-color:#2e9b43;
+  box-shadow:0 0 0 4px rgba(46,155,67,.18);
+}
+.choiceCard.wrong{
+  border-color:#d73a3a;
+  box-shadow:0 0 0 4px rgba(215,58,58,.18);
+}
+
+.sortLayout{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.categoryRow{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(140px,1fr));
+  gap:10px;
+  justify-content:center;
+}
+.categoryBox{
+  background:rgba(255,255,255,.92);
+  border:3px solid rgba(142,115,214,.35);
+  border-radius:18px;
+  min-height:180px;
+  padding:10px 8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  text-align:center;
+}
+.categoryBoxLabel{
+  font-size:clamp(.9rem,1.8vw,1.05rem);
+  line-height:1.05;
+}
+.categoryItems{
+  width:100%;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:6px;
+}
+.miniThumb{
+  width:48px;
+  height:48px;
+  background:#fff;
+  border:2px solid rgba(142,115,214,.28);
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.miniThumb img{
+  max-width:90%;
+  max-height:90%;
+  object-fit:contain;
+}
+.categoryBox.dropGood{
+  border-color:#2e9b43;
+  box-shadow:0 0 0 4px rgba(46,155,67,.16);
+}
+.categoryBox.dropBad{
+  border-color:#d73a3a;
+  box-shadow:0 0 0 4px rgba(215,58,58,.16);
+}
+
+.pool{
+  background:rgba(255,255,255,.55);
+  border:3px dashed rgba(142,115,214,.28);
+  border-radius:18px;
+  padding:12px;
+}
+.poolGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(84px,1fr));
+  gap:10px;
+}
+.poolItem{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.25);
+  border-radius:16px;
+  min-height:84px;
+  padding:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:transform .15s ease, border-color .15s ease, opacity .15s ease;
+}
+.poolItem img{
+  max-width:100%;
+  max-height:70px;
+  object-fit:contain;
+  pointer-events:none;
+}
+.poolItem.selected{
+  border-color:#8E73D6;
+  box-shadow:0 0 0 4px rgba(142,115,214,.14);
+  transform:translateY(-2px);
+}
+.poolItem.disabled{
+  opacity:.35;
+  pointer-events:none;
+}
+
+.pluralLayout{
+  display:grid;
+  grid-template-columns:minmax(180px,260px) 1fr;
+  gap:16px;
+  align-items:start;
+}
+.bigImageCard{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.25);
+  border-radius:22px;
+  padding:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:230px;
+}
+.bigImageCard img{
+  max-width:100%;
+  max-height:210px;
+  object-fit:contain;
+}
+.answerPanel{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.answerBox{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.28);
+  border-radius:18px;
+  padding:10px 12px;
+}
+#pluralInput{
+  width:100%;
+  border:none;
+  background:transparent;
+  font-family:'Schoulschrëft', Arial, sans-serif;
+  font-size:clamp(1.5rem,3vw,2rem);
+  color:var(--ink);
+}
+#pluralInput::placeholder{color:rgba(0,0,0,.25);}
+.checkRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.actionBtn{
+  border:none;
+  background:#8E73D6;
+  color:#fff;
+  border-radius:999px;
+  padding:10px 18px;
+  font-family:'Schoulschrëft', Arial, sans-serif;
+  font-size:clamp(1rem,2vw,1.1rem);
+  cursor:pointer;
+}
+.actionBtn.alt{background:#b8a3e8; color:#fff;}
+.keyGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(54px,1fr));
+  gap:8px;
+}
+.keyBtn{
+  border:none;
+  background:#fff;
+  border:3px solid rgba(142,115,214,.24);
+  border-radius:14px;
+  min-height:50px;
+  font-family:'Schoulschrëft', Arial, sans-serif;
+  font-size:1.1rem;
+  cursor:pointer;
+}
+.keyBtn.wide{grid-column:span 2;}
+
+.quizWrap{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.ingredientList{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.ingPill{
+  background:#fff;
+  border:3px solid rgba(142,115,214,.24);
+  border-radius:999px;
+  padding:8px 14px;
+  font-size:clamp(1rem,2vw,1.1rem);
+}
+.quizOptions{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
+}
+.quizBtn{
+  border:none;
+  background:#fff;
+  border:3px solid rgba(142,115,214,.24);
+  border-radius:18px;
+  padding:16px 12px;
+  font-family:'Schoulschrëft', Arial, sans-serif;
+  font-size:clamp(1rem,2vw,1.15rem);
+  cursor:pointer;
+}
+.quizBtn.correct{
+  border-color:#2e9b43;
+  box-shadow:0 0 0 4px rgba(46,155,67,.16);
+}
+.quizBtn.wrong{
+  border-color:#d73a3a;
+  box-shadow:0 0 0 4px rgba(215,58,58,.16);
+}
+
+.doneBox{
+  background:rgba(255,255,255,.9);
+  border:3px dashed rgba(142,115,214,.35);
+  border-radius:18px;
+  padding:24px 16px;
+  text-align:center;
+  font-size:clamp(1.2rem,2.4vw,1.5rem);
+}
+
+.barBtn.disabled{
+  opacity:.38;
+  cursor:default;
+  pointer-events:none;
+}
+
+@media (max-width:980px){
+  .categoryRow{
+    grid-template-columns:repeat(3,minmax(120px,1fr));
+  }
+}
+@media (max-width:720px){
+  .pluralLayout{
+    grid-template-columns:1fr;
+  }
+  .categoryRow{
+    grid-template-columns:repeat(2,minmax(120px,1fr));
+  }
+}
+@media (max-width:460px){
+  .choiceGrid{grid-template-columns:repeat(2,1fr);}
+  .poolGrid{grid-template-columns:repeat(3,1fr);}
+}
 </style>
 </head>
-
 <body>
-
 <div class="topBar">
   <button class="barBtn back" id="prev" aria-label="Virdrun">
     <img src="https://i.postimg.cc/k6VtHrh0/p4arrow.png" alt="">
   </button>
-
-  <h1 class="barTitle" id="gameTitle">P4 – Titel vum Spill</h1>
-
+  <h1 class="barTitle" id="gameTitle">d'Iessen – Lauschter a klick</h1>
   <div class="barRight">
     <button class="barBtn" id="play" aria-label="Play">
       <img src="https://i.postimg.cc/WFDJyRHR/p4play.png" alt="">
@@ -205,89 +430,625 @@ html,body{
     </button>
   </div>
 </div>
-
 <div class="wrap">
   <div class="card">
-    <p class="cardTitle">Spill-Inhalt</p>
-    <div class="placeholder">Hei kënnt d’Übung / Spill fir dëst Kapitel eran.</div>
+    <div id="gameHost">
+  <section class="gameSection active" id="game1">
+    <p class="instruction">Lauschter a klick op dat richtegt Bild.</p>
+    <div class="progressRow">
+      <div class="badge" id="g1Progress"></div>
+    </div>
+    <div class="statusMsg" id="g1Status"></div>
+    <div class="choiceGrid" id="g1Grid"></div>
+  </section>
+
+  <section class="gameSection" id="game2">
+    <p class="instruction">Lauschter, sich dat richtegt Bild a lee et an déi richteg Kategorie.</p>
+    <div class="progressRow">
+      <div class="badge" id="g2Progress"></div>
+      <div class="badge" id="g2TargetLabel">Lauschter!</div>
+    </div>
+    <div class="statusMsg" id="g2Status"></div>
+    <div class="sortLayout">
+      <div class="categoryRow" id="g2Categories"></div>
+      <div class="pool">
+        <div class="poolGrid" id="g2Pool"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gameSection" id="game3">
+    <p class="instruction">Kuck d’Bild a schreiw de Pluriel.</p>
+    <div class="progressRow">
+      <div class="badge" id="g3Progress"></div>
+    </div>
+    <div class="statusMsg" id="g3Status"></div>
+    <div class="pluralLayout">
+      <div class="bigImageCard">
+        <img id="g3Image" src="" alt="">
+      </div>
+      <div class="answerPanel">
+        <div class="answerBox">
+          <input id="pluralInput" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Schreiw hei...">
+        </div>
+        <div class="checkRow">
+          <button class="actionBtn" id="checkPlural">OK</button>
+          <button class="actionBtn alt" id="clearPlural">Läschen</button>
+        </div>
+        <div class="keyGrid" id="g3Keys"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gameSection" id="game4">
+    <p class="instruction">Wat kann ech kachen mat dësen Zutaten?</p>
+    <div class="progressRow">
+      <div class="badge" id="g4Progress"></div>
+    </div>
+    <div class="statusMsg" id="g4Status"></div>
+    <div class="quizWrap">
+      <div class="ingredientList" id="g4Ingredients"></div>
+      <div class="quizOptions" id="g4Options"></div>
+    </div>
+  </section>
+
+</div>
   </div>
 </div>
-
 <script>
-document.getElementById('prev').onclick = ()=>{};
-document.getElementById('next').onclick = ()=>{};
-document.getElementById('play').onclick = ()=>{};
-document.getElementById('replay').onclick = ()=>{};
-</script>
+const AUDIO_BASE = "https://github.com/albrechtclaire1007/p4iessen/raw/refs/heads/main/";
 
+const categories = [
+  { id:"gemeis", label:"Geméis" },
+  { id:"mellech", label:"Mëllechproduiten" },
+  { id:"proteinnen", label:"Proteinnen" },
+  { id:"kuelenhydrater", label:"Kuelenhydrater" },
+  { id:"gewierzer", label:"Gewierzer" },
+  { id:"gedrenks", label:"Gedrénks" }
+];
+
+const items = [
+  { id:"bifdeck", word:"de Bifdeck", img:"https://i.postimg.cc/K12D9SGM/Bifdeck.png", audio:"ouni_biffdeck.mp3", cat:"proteinnen" },
+  { id:"botter", word:"de Botter", img:"https://i.postimg.cc/211ZmCzT/Botter-Ouni.png", audio:"ouni_botter.mp3", cat:"mellech" },
+  { id:"bounen", word:"d'Boun", img:"https://i.postimg.cc/kVc9ptky/Bounen-Ouni.png", audio:"ouni_boun.mp3", cat:"gemeis" },
+  { id:"brout", word:"d'Brout", img:"https://i.postimg.cc/RJwnfhnW/Brout.png", audio:"ouni_brout.mp3", cat:"kuelenhydrater" },
+  { id:"ee", word:"d'Ee", img:"https://i.postimg.cc/V5XSKSdX/Eer.png", audio:"ouni_ee.mp3", cat:"proteinnen" },
+  { id:"enn", word:"d'Ënn", img:"https://i.postimg.cc/s1Mmx4Hj/ennen.png", audio:"ouni_enn.mp3", cat:"gemeis" },
+  { id:"fesch", word:"de Fësch", img:"https://i.postimg.cc/QF3J6G8t/Fesch.png", audio:"ouni_fesch.mp3", cat:"proteinnen" },
+  { id:"ierbes", word:"d'Ierbes", img:"https://i.postimg.cc/Y4t8ScZd/Ierbsen.png", audio:"ouni_ierbes.mp3", cat:"gemeis" },
+  { id:"jugurt", word:"de Jugurt", img:"https://i.postimg.cc/gXsJ87zw/Jugurt-Ouni.png", audio:"ouni_jugurt.mp3", cat:"mellech" },
+  { id:"jus", word:"de Jus", img:"https://i.postimg.cc/4Yxm4BwQ/Jus.png", audio:"ouni_jus.mp3", cat:"gedrenks" },
+  { id:"kachkeis", word:"de Kachkéis", img:"https://i.postimg.cc/PpXfXMWj/Kachkeis-Ouni.png", audio:"ouni_kachkeis.mp3", cat:"mellech" },
+  { id:"knuewleck", word:"de Knuewelek", img:"https://i.postimg.cc/QBjSMLw4/Knuewleck.png", audio:"ouni_knuewleck.mp3", cat:"gemeis" },
+  { id:"limonad", word:"d'Limonad", img:"https://i.postimg.cc/wRFgSYCr/Limonad.png", audio:"ouni_limonad.mp3", cat:"gedrenks" },
+  { id:"mellech", word:"d'Mëllech", img:"https://i.postimg.cc/jwHs47Zt/Mellech-Ouni.png", audio:"ouni_mellech.mp3", cat:"mellech" },
+  { id:"miel", word:"d'Miel", img:"https://i.postimg.cc/PvCSkm9j/Miel.png", audio:"ouni_miel.mp3", cat:"kuelenhydrater" },
+  { id:"moschter", word:"de Moschter", img:"https://i.postimg.cc/5Hc6VvKQ/Moschter-Ouni.png", audio:"ouni_moschter.mp3", cat:"gewierzer" },
+  { id:"nuddel", word:"d'Nuddel", img:"https://i.postimg.cc/Jt7tMRxR/Nuddelen-Ouni.png", audio:"ouni_nuddel.mp3", cat:"kuelenhydrater" },
+  { id:"peffer", word:"de Peffer", img:"https://i.postimg.cc/XZ34LgDr/Peffer-Ouni.png", audio:"ouni_peffer.mp3", cat:"gewierzer" },
+  { id:"poulet", word:"de Poulet", img:"https://i.postimg.cc/2bZqRyTR/Poulet.png", audio:"ouni_poulet.mp3", cat:"proteinnen" },
+  { id:"raiss", word:"de Räis", img:"https://i.postimg.cc/Y43ksm5c/Rais-Ouni.png", audio:"ouni_raiss.mp3", cat:"kuelenhydrater" },
+  { id:"ram", word:"d'Ram", img:"https://i.postimg.cc/5YVYwv8D/Ram-Ouni.png", audio:"ouni_ram.mp3", cat:"mellech" },
+  { id:"rieslingspaschteit", word:"d'Rieslingspaschtéit", img:"https://i.postimg.cc/Z0WHnx71/Rieslingspaschteit.png", audio:"ouni_rieslingspaschteit.mp3", cat:"proteinnen" },
+  { id:"salz", word:"d'Salz", img:"https://i.postimg.cc/06fxBJLc/Salz-Ouni.png", audio:"ouni_salz.mp3", cat:"gewierzer" },
+  { id:"spruddelwaasser", word:"d'Spruddelwaasser", img:"https://i.postimg.cc/348r8ZgV/Spruddelwaasser-Ouni.png", audio:"ouni_spruddelwaasser.mp3", cat:"gedrenks" },
+  { id:"taart", word:"d'Taart", img:"https://i.postimg.cc/gwfJDdp8/Taart.png", audio:"ouni_taart.mp3", cat:"kuelenhydrater" },
+  { id:"waasser", word:"d'Waasser", img:"https://i.postimg.cc/rdCF2Htv/Waasser-Ouni.png", audio:"ouni_waasser.mp3", cat:"gedrenks" },
+  { id:"zocker", word:"den Zocker", img:"https://i.postimg.cc/bsJGHq2d/Zocker-Ouni.png", audio:"ouni_zocker.mp3", cat:"kuelenhydrater" },
+  { id:"zoossiss", word:"d'Zoossiss", img:"https://i.postimg.cc/18QrWh9T/Zoossiss.png", audio:"ouni_zoossiss.mp3", cat:"proteinnen" }
+];
+
+const pluralPrompts = [
+  { id:"ierbes", img:"https://i.postimg.cc/Y4t8ScZd/Ierbsen.png", answer:"Ierbessen", audio:"ouni_ierbes.mp3" },
+  { id:"bounen", img:"https://i.postimg.cc/kVc9ptky/Bounen-Ouni.png", answer:"Bounen", audio:"ouni_boun.mp3" },
+  { id:"enn", img:"https://i.postimg.cc/s1Mmx4Hj/ennen.png", answer:"Ënnen", audio:"ouni_enn.mp3" },
+  { id:"zoossiss", img:"https://i.postimg.cc/18QrWh9T/Zoossiss.png", answer:"Zoossissen", audio:"ouni_zoossiss.mp3" },
+  { id:"fesch", img:"https://i.postimg.cc/QF3J6G8t/Fesch.png", answer:"Fësch", audio:"ouni_fesch.mp3" },
+  { id:"ee", img:"https://i.postimg.cc/V5XSKSdX/Eer.png", answer:"Eeër", audio:"ouni_ee.mp3" },
+  { id:"brout", img:"https://i.postimg.cc/RJwnfhnW/Brout.png", answer:"Brout", audio:"ouni_brout.mp3" },
+  { id:"metsch", img:"https://i.postimg.cc/8P6D72hG/Metsch.png", answer:"Mëtschen", audio:"ouni_metsch.mp3" },
+  { id:"taart", img:"https://i.postimg.cc/gwfJDdp8/Taart.png", answer:"Taarten", audio:"ouni_taart.mp3" },
+  { id:"nuddel", img:"https://i.postimg.cc/Jt7tMRxR/Nuddelen-Ouni.png", answer:"Nuddelen", audio:"ouni_nuddel.mp3" }
+];
+
+const recipeQuestions = [
+  {
+    prompt:"Wat kann ech kache mat Eeër, Mëllech a Miel?",
+    ingredients:["Eeër","Mëllech","Miel"],
+    options:["Pangecher","Fësch mat Räis","Knueweleksbrout","Zoossiss mat Bounen"],
+    correct:"Pangecher"
+  },
+  {
+    prompt:"Wat kann ech kache mat Brout, Botter a Knuewelek?",
+    ingredients:["Brout","Botter","Knuewelek"],
+    options:["Taart","Knueweleksbrout","Bifdeck mat Ënnen","Poulet mat Räis"],
+    correct:"Knueweleksbrout"
+  },
+  {
+    prompt:"Wat kann ech kache mat Bifdeck, Ënnen, Salz a Peffer?",
+    ingredients:["Bifdeck","Ënnen","Salz","Peffer"],
+    options:["Bifdeck mat Ënnen","Pangecher","Rieslingspaschtéit","Mëllechreis"],
+    correct:"Bifdeck mat Ënnen"
+  },
+  {
+    prompt:"Wat kann ech kache mat Fësch, Räis a Salz?",
+    ingredients:["Fësch","Räis","Salz"],
+    options:["Poulet mat Räis","Fësch mat Räis","Knueweleksbrout","Taart"],
+    correct:"Fësch mat Räis"
+  },
+  {
+    prompt:"Wat kann ech kache mat Poulet, Räis a Salz?",
+    ingredients:["Poulet","Räis","Salz"],
+    options:["Zoossiss mat Bounen","Fësch mat Räis","Poulet mat Räis","Pangecher"],
+    correct:"Poulet mat Räis"
+  },
+  {
+    prompt:"Wat kann ech kache mat Zoossiss a Bounen?",
+    ingredients:["Zoossiss","Bounen"],
+    options:["Zoossiss mat Bounen","Taart","Bifdeck mat Ënnen","Knueweleksbrout"],
+    correct:"Zoossiss mat Bounen"
+  },
+  {
+    prompt:"Wat kann ech baken mat Miel, Zocker, Eeër a Ram?",
+    ingredients:["Miel","Zocker","Eeër","Ram"],
+    options:["Taart","Fësch mat Räis","Poulet mat Räis","Knueweleksbrout"],
+    correct:"Taart"
+  },
+  {
+    prompt:"Wat kann ech preparéiere mat Brout a Kachkéis?",
+    ingredients:["Brout","Kachkéis"],
+    options:["Kachkéisbrout","Rieslingspaschtéit","Mëllechreis","Zoossiss mat Bounen"],
+    correct:"Kachkéisbrout"
+  }
+];
+
+const gameTitles = [
+  "d'Iessen – Lauschter a klick",
+  "d'Iessen – Sortéier an déi richteg Kategorie",
+  "d'Iessen – De Pluriel",
+  "d'Iessen – Wat kann ech kachen?"
+];
+
+const gameSections = [...document.querySelectorAll(".gameSection")];
+const titleEl = document.getElementById("gameTitle");
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+const playBtn = document.getElementById("play");
+const replayBtn = document.getElementById("replay");
+
+let currentGame = 0;
+let activeAudio = null;
+let suppressInputFocus = false;
+
+function shuffle(arr){
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function sampleOthers(excludeId, count){
+  return shuffle(items.filter(x => x.id !== excludeId)).slice(0,count);
+}
+function playAudioFile(file){
+  if(!file) return;
+  if(activeAudio){
+    activeAudio.pause();
+    activeAudio.currentTime = 0;
+  }
+  activeAudio = new Audio(AUDIO_BASE + file);
+  activeAudio.play().catch(()=>{});
+}
+function normalizeText(s){
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]/g,"");
+}
+function flashStatus(el, msg, cls){
+  el.textContent = msg;
+  el.className = "statusMsg " + cls;
+}
+function clearStatus(el){
+  el.textContent = "";
+  el.className = "statusMsg";
+}
+function setPlayEnabled(enabled){
+  playBtn.classList.toggle("disabled", !enabled);
+}
+function showGame(index){
+  currentGame = Math.max(0, Math.min(gameSections.length - 1, index));
+  gameSections.forEach((sec,i)=>sec.classList.toggle("active", i === currentGame));
+  titleEl.textContent = gameTitles[currentGame];
+  prevBtn.classList.toggle("disabled", currentGame === 0);
+  nextBtn.classList.toggle("disabled", currentGame === gameSections.length - 1);
+  if(currentGame === 0){
+    renderGame1();
+  }else if(currentGame === 1){
+    renderGame2();
+  }else if(currentGame === 2){
+    renderGame3();
+  }else{
+    renderGame4();
+  }
+}
+
+/* Game 1 */
+const g1 = {
+  order: [],
+  index: 0,
+  options: [],
+  finished: false
+};
+function resetGame1(){
+  g1.order = shuffle(items);
+  g1.index = 0;
+  g1.finished = false;
+  prepareGame1Step();
+  renderGame1();
+}
+function prepareGame1Step(){
+  if(g1.index >= g1.order.length){
+    g1.finished = true;
+    g1.options = [];
+    return;
+  }
+  const target = g1.order[g1.index];
+  g1.options = shuffle([target, ...sampleOthers(target.id, 7)]);
+}
+function renderGame1(){
+  const grid = document.getElementById("g1Grid");
+  const prog = document.getElementById("g1Progress");
+  const status = document.getElementById("g1Status");
+  clearStatus(status);
+
+  if(g1.finished){
+    prog.textContent = `${g1.order.length} / ${g1.order.length}`;
+    grid.innerHTML = `<div class="doneBox">Bravo! Du hues alles fonnt.</div>`;
+    setPlayEnabled(false);
+    return;
+  }
+
+  prog.textContent = `${g1.index + 1} / ${g1.order.length}`;
+  grid.innerHTML = "";
+  g1.options.forEach(opt=>{
+    const btn = document.createElement("button");
+    btn.className = "choiceCard";
+    btn.innerHTML = `<img src="${opt.img}" alt="${opt.word}">`;
+    btn.onclick = ()=>{
+      const target = g1.order[g1.index];
+      if(opt.id === target.id){
+        btn.classList.add("correct");
+        flashStatus(status, "Super!", "good");
+        setTimeout(()=>{
+          g1.index++;
+          prepareGame1Step();
+          renderGame1();
+          if(!g1.finished) playAudioFile(g1.order[g1.index].audio);
+        }, 420);
+      }else{
+        btn.classList.add("wrong");
+        flashStatus(status, "Probéier nach eng Kéier.", "bad");
+        setTimeout(()=>btn.classList.remove("wrong"), 350);
+      }
+    };
+    grid.appendChild(btn);
+  });
+  setPlayEnabled(true);
+}
+function playGame1(){
+  if(!g1.finished && g1.order[g1.index]){
+    playAudioFile(g1.order[g1.index].audio);
+  }
+}
+
+/* Game 2 */
+const g2 = {
+  remaining: [],
+  placed: {},
+  currentTargetId: null,
+  selectedId: null,
+  finished: false
+};
+function resetGame2(){
+  g2.remaining = shuffle(items.map(x=>x.id));
+  g2.placed = {};
+  categories.forEach(c=>g2.placed[c.id] = []);
+  g2.currentTargetId = g2.remaining[0] || null;
+  g2.selectedId = null;
+  g2.finished = g2.remaining.length === 0;
+  renderGame2();
+}
+function getItem(id){
+  return items.find(x=>x.id === id);
+}
+function renderGame2(){
+  const prog = document.getElementById("g2Progress");
+  const targetLabel = document.getElementById("g2TargetLabel");
+  const status = document.getElementById("g2Status");
+  const catWrap = document.getElementById("g2Categories");
+  const pool = document.getElementById("g2Pool");
+  clearStatus(status);
+
+  catWrap.innerHTML = "";
+  categories.forEach(cat=>{
+    const box = document.createElement("div");
+    box.className = "categoryBox";
+    box.dataset.cat = cat.id;
+    box.innerHTML = `
+      <div class="categoryBoxLabel">${cat.label}</div>
+      <div class="categoryItems">
+        ${g2.placed[cat.id].map(id=>{
+          const it = getItem(id);
+          return `<div class="miniThumb"><img src="${it.img}" alt="${it.word}"></div>`;
+        }).join("")}
+      </div>
+    `;
+    box.onclick = ()=> {
+      if(g2.selectedId) attemptPlace(g2.selectedId, cat.id, box);
+    };
+    box.ondragover = (e)=>{ e.preventDefault(); };
+    box.ondrop = (e)=>{
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData("text/plain");
+      if(draggedId) attemptPlace(draggedId, cat.id, box);
+    };
+    catWrap.appendChild(box);
+  });
+
+  if(g2.finished){
+    prog.textContent = `${items.length} / ${items.length}`;
+    targetLabel.textContent = "Fäerdeg!";
+    pool.innerHTML = `<div class="doneBox">Bravo! Alles ass richteg sortéiert.</div>`;
+    setPlayEnabled(false);
+    return;
+  }
+
+  prog.textContent = `${items.length - g2.remaining.length + 1} / ${items.length}`;
+  const currentItem = getItem(g2.currentTargetId);
+  targetLabel.textContent = "Lauschter!";
+  pool.innerHTML = "";
+
+  const remainingItems = g2.remaining.map(id => getItem(id));
+  remainingItems.forEach(it=>{
+    const div = document.createElement("div");
+    div.className = "poolItem" + (g2.selectedId === it.id ? " selected" : "");
+    div.draggable = true;
+    div.innerHTML = `<img src="${it.img}" alt="${it.word}">`;
+    div.onclick = ()=>{
+      g2.selectedId = (g2.selectedId === it.id ? null : it.id);
+      renderGame2();
+    };
+    div.ondragstart = (e)=>{
+      g2.selectedId = it.id;
+      e.dataTransfer.setData("text/plain", it.id);
+    };
+    pool.appendChild(div);
+  });
+  setPlayEnabled(!!currentItem);
+}
+function attemptPlace(itemId, catId, boxEl){
+  const currentItem = getItem(g2.currentTargetId);
+  const tryItem = getItem(itemId);
+  const status = document.getElementById("g2Status");
+  if(!currentItem || !tryItem) return;
+
+  if(itemId === currentItem.id && catId === currentItem.cat){
+    boxEl.classList.add("dropGood");
+    g2.placed[catId].push(itemId);
+    g2.remaining = g2.remaining.filter(id => id !== itemId);
+    g2.currentTargetId = g2.remaining[0] || null;
+    g2.selectedId = null;
+    flashStatus(status, "Richteg!", "good");
+    if(g2.remaining.length === 0){
+      g2.finished = true;
+    }
+    setTimeout(()=>{
+      boxEl.classList.remove("dropGood");
+      renderGame2();
+      if(!g2.finished && g2.currentTargetId) playAudioFile(getItem(g2.currentTargetId).audio);
+    }, 420);
+  }else{
+    boxEl.classList.add("dropBad");
+    flashStatus(status, "Dat passt net. Lauschter nach eng Kéier.", "bad");
+    setTimeout(()=>boxEl.classList.remove("dropBad"), 350);
+  }
+}
+function playGame2(){
+  if(g2.currentTargetId){
+    playAudioFile(getItem(g2.currentTargetId).audio);
+  }
+}
+
+/* Game 3 */
+const g3 = {
+  order: [],
+  index: 0,
+  finished: false
+};
+const keyboardKeys = [
+  "A","B","C","D","E","É","Ë","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","Ä","Ö","Ü","Ë",
+  "⌫","-","'"
+];
+function resetGame3(){
+  g3.order = shuffle(pluralPrompts);
+  g3.index = 0;
+  g3.finished = false;
+  document.getElementById("pluralInput").value = "";
+  buildPluralKeyboard();
+  renderGame3();
+}
+function buildPluralKeyboard(){
+  const wrap = document.getElementById("g3Keys");
+  wrap.innerHTML = "";
+  keyboardKeys.forEach(key=>{
+    const btn = document.createElement("button");
+    btn.className = "keyBtn";
+    btn.textContent = key;
+    btn.onclick = ()=>{
+      const input = document.getElementById("pluralInput");
+      input.focus();
+      if(key === "⌫"){
+        input.value = input.value.slice(0,-1);
+      }else{
+        input.value += key;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
+function renderGame3(){
+  const prog = document.getElementById("g3Progress");
+  const status = document.getElementById("g3Status");
+  const img = document.getElementById("g3Image");
+  const input = document.getElementById("pluralInput");
+  clearStatus(status);
+
+  if(g3.finished){
+    prog.textContent = `${g3.order.length} / ${g3.order.length}`;
+    img.src = "https://i.postimg.cc/gwfJDdp8/Taart.png";
+    input.value = "";
+    input.disabled = true;
+    document.getElementById("g3Keys").innerHTML = `<div class="doneBox">Bravo! Du kenns de Pluriel.</div>`;
+    setPlayEnabled(false);
+    return;
+  }
+
+  input.disabled = false;
+  const prompt = g3.order[g3.index];
+  prog.textContent = `${g3.index + 1} / ${g3.order.length}`;
+  img.src = prompt.img;
+  img.alt = prompt.answer;
+  input.focus();
+  setPlayEnabled(true);
+}
+function checkPlural(){
+  if(g3.finished) return;
+  const prompt = g3.order[g3.index];
+  const input = document.getElementById("pluralInput");
+  const status = document.getElementById("g3Status");
+  const guess = input.value.trim();
+  if(normalizeText(guess) === normalizeText(prompt.answer)){
+    flashStatus(status, "Richteg!", "good");
+    setTimeout(()=>{
+      g3.index++;
+      if(g3.index >= g3.order.length){
+        g3.finished = true;
+      }
+      input.value = "";
+      renderGame3();
+      if(!g3.finished) playAudioFile(g3.order[g3.index].audio);
+    }, 420);
+  }else{
+    flashStatus(status, "Nach net ganz. Probéier nach eng Kéier.", "bad");
+  }
+}
+function playGame3(){
+  if(!g3.finished && g3.order[g3.index]){
+    playAudioFile(g3.order[g3.index].audio);
+  }
+}
+
+/* Game 4 */
+const g4 = {
+  order: [],
+  index: 0,
+  finished: false
+};
+function resetGame4(){
+  g4.order = shuffle(recipeQuestions);
+  g4.index = 0;
+  g4.finished = false;
+  renderGame4();
+}
+function renderGame4(){
+  const prog = document.getElementById("g4Progress");
+  const status = document.getElementById("g4Status");
+  const ingWrap = document.getElementById("g4Ingredients");
+  const optWrap = document.getElementById("g4Options");
+  clearStatus(status);
+
+  if(g4.finished){
+    prog.textContent = `${g4.order.length} / ${g4.order.length}`;
+    ingWrap.innerHTML = `<div class="doneBox">Super! Du weess elo, wat ee mat den Zutaten kache kann.</div>`;
+    optWrap.innerHTML = "";
+    setPlayEnabled(false);
+    return;
+  }
+
+  const q = g4.order[g4.index];
+  prog.textContent = `${g4.index + 1} / ${g4.order.length}`;
+  flashStatus(status, q.prompt, "");
+  ingWrap.innerHTML = q.ingredients.map(x => `<div class="ingPill">${x}</div>`).join("");
+  optWrap.innerHTML = "";
+  shuffle(q.options).forEach(opt=>{
+    const btn = document.createElement("button");
+    btn.className = "quizBtn";
+    btn.textContent = opt;
+    btn.onclick = ()=>{
+      if(opt === q.correct){
+        btn.classList.add("correct");
+        flashStatus(status, "Jo, dat ass richteg!", "good");
+        setTimeout(()=>{
+          g4.index++;
+          if(g4.index >= g4.order.length){
+            g4.finished = true;
+          }
+          renderGame4();
+        }, 420);
+      }else{
+        btn.classList.add("wrong");
+        flashStatus(status, "Net ganz. Kuck d'Zutaten nach eng Kéier.", "bad");
+        setTimeout(()=>btn.classList.remove("wrong"), 350);
+      }
+    };
+    optWrap.appendChild(btn);
+  });
+  setPlayEnabled(false);
+}
+
+/* Global navigation / hooks */
+function resetCurrentGame(){
+  if(currentGame === 0) resetGame1();
+  if(currentGame === 1) resetGame2();
+  if(currentGame === 2) resetGame3();
+  if(currentGame === 3) resetGame4();
+}
+function playCurrentGame(){
+  if(currentGame === 0) playGame1();
+  if(currentGame === 1) playGame2();
+  if(currentGame === 2) playGame3();
+}
+prevBtn.onclick = ()=> {
+  if(currentGame > 0) showGame(currentGame - 1);
+};
+nextBtn.onclick = ()=> {
+  if(currentGame < gameSections.length - 1) showGame(currentGame + 1);
+};
+playBtn.onclick = ()=> { if(!playBtn.classList.contains("disabled")) playCurrentGame(); };
+replayBtn.onclick = ()=> resetCurrentGame();
+
+document.getElementById("checkPlural").onclick = checkPlural;
+document.getElementById("clearPlural").onclick = ()=>{
+  const input = document.getElementById("pluralInput");
+  input.value = "";
+  input.focus();
+};
+document.getElementById("pluralInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    checkPlural();
+  }
+});
+
+resetGame1();
+resetGame2();
+resetGame3();
+resetGame4();
+showGame(0);
+setTimeout(()=>playGame1(), 300);
+</script>
 </body>
 </html>
-
-here is the sample audio file and you can find the others in the screenshot: https://github.com/albrechtclaire1007/p4iessen/raw/refs/heads/main/ouni_biffdeck.mp3
-
-here's the image links: (you don't have image links for all the words)
-
-[url=https://postimg.cc/K12D9SGM][img]https://i.postimg.cc/K12D9SGM/Bifdeck.png[/img][/url]
-
-[url=https://postimg.cc/211ZmCzT][img]https://i.postimg.cc/211ZmCzT/Botter-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/kVc9ptky][img]https://i.postimg.cc/kVc9ptky/Bounen-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/RJwnfhnW][img]https://i.postimg.cc/RJwnfhnW/Brout.png[/img][/url]
-
-[url=https://postimg.cc/V5XSKSdX][img]https://i.postimg.cc/V5XSKSdX/Eer.png[/img][/url]
-
-[url=https://postimg.cc/s1Mmx4Hj][img]https://i.postimg.cc/s1Mmx4Hj/ennen.png[/img][/url]
-
-[url=https://postimg.cc/QF3J6G8t][img]https://i.postimg.cc/QF3J6G8t/Fesch.png[/img][/url]
-
-[url=https://postimg.cc/Y4t8ScZd][img]https://i.postimg.cc/Y4t8ScZd/Ierbsen.png[/img][/url]
-
-[url=https://postimg.cc/gXsJ87zw][img]https://i.postimg.cc/gXsJ87zw/Jugurt-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/4Yxm4BwQ][img]https://i.postimg.cc/4Yxm4BwQ/Jus.png[/img][/url]
-
-[url=https://postimg.cc/PpXfXMWj][img]https://i.postimg.cc/PpXfXMWj/Kachkeis-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/QBjSMLw4][img]https://i.postimg.cc/QBjSMLw4/Knuewleck.png[/img][/url]
-
-[url=https://postimg.cc/wRFgSYCr][img]https://i.postimg.cc/wRFgSYCr/Limonad.png[/img][/url]
-
-[url=https://postimg.cc/jwHs47Zt][img]https://i.postimg.cc/jwHs47Zt/Mellech-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/PvCSkm9j][img]https://i.postimg.cc/PvCSkm9j/Miel.png[/img][/url]
-
-[url=https://postimg.cc/5Hc6VvKQ][img]https://i.postimg.cc/5Hc6VvKQ/Moschter-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/Jt7tMRxR][img]https://i.postimg.cc/Jt7tMRxR/Nuddelen-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/XZ34LgDr][img]https://i.postimg.cc/XZ34LgDr/Peffer-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/2bZqRyTR][img]https://i.postimg.cc/2bZqRyTR/Poulet.png[/img][/url]
-
-[url=https://postimg.cc/Y43ksm5c][img]https://i.postimg.cc/Y43ksm5c/Rais-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/5YVYwv8D][img]https://i.postimg.cc/5YVYwv8D/Ram-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/Z0WHnx71][img]https://i.postimg.cc/Z0WHnx71/Rieslingspaschteit.png[/img][/url]
-
-[url=https://postimg.cc/06fxBJLc][img]https://i.postimg.cc/06fxBJLc/Salz-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/348r8ZgV][img]https://i.postimg.cc/348r8ZgV/Spruddelwaasser-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/gwfJDdp8][img]https://i.postimg.cc/gwfJDdp8/Taart.png[/img][/url]
-
-[url=https://postimg.cc/rdCF2Htv][img]https://i.postimg.cc/rdCF2Htv/Waasser-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/bsJGHq2d][img]https://i.postimg.cc/bsJGHq2d/Zocker-Ouni.png[/img][/url]
-
-[url=https://postimg.cc/18QrWh9T][img]https://i.postimg.cc/18QrWh9T/Zoossiss.png[/img][/url]
-
-
-
-game 1: lauschter a klick
-game 2: sortéier an déi richteg categorie. Kids hear a word, all images are placed below 6 boxes (one for each food type - check the vocabulary sheet). when they hear a word they need to place the corresponding image into the correct category box. these boxes are aligned horizontally in the center. 
-game 3: De pluriel. We'll have an image, no singular indicated, a keyboard and the kids need to type in the correct plural form. also enable using the actual keyboard. obviously we skip the words that don't have a plurial form because they're uncountable. 
-another idea for a game would be that we give them a list of ingredients and they click on the corresponding dish that can be made, here i'd prefer using words rather than images. 
-For instance: Wat kann ech kachen mat Eeër, Mëllech a Miel? (Pangescher)
-Here i would need you to make some suggestions though. Alternatively, we take some traditional luxembourgish dishes, give the name and show a picture and up to the kids to figure out what ingredients come in there? What do you think?
